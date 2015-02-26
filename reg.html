@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block the_body %}
+
+<h4>Please enter the following details:</h4>
+
+
+<form action='{{ action }}' method='POST' class="pure-form pure-form-aligned">
+
+	<div class="pure-control-group">
+		<label for="userid">User-id:</label>
+		<input type='text' name='userid' id="userid">
+	</div>
+
+	<div class="pure-control-group">
+		<label for="username">Name:</label>
+		<input type='text' name='username' id="username">
+	</div>
+
+	<div class="pure-control-group">
+		<label for="email">Email:</label>
+		<input type='email' name='email' id="email">
+	</div>
+
+	<div class="pure-control-group">
+		<label for="passwd">Password:</label>
+		<input type='password' name='passwd' id="passwd">
+	</div>
+
+	<div class="pure-control-group">
+		<label for="passwd2">Password:</label>
+		<input type='password' name='passwd2' id="passwd2"></br>
+		<div class="pure-controls">
+			<input type='submit' value='Register' class="pure-button pure-button-primary">
+		</div>
+	</div>
+
+</form>
+
+
+{% if errors %}
+	<ul>
+	{% for error in errors  %}
+		<li style="color:red"> {{ error }} </li></br>
+	{% endfor %}
+	</ul>
+{% endif %}
+
+
+
+{% endblock %}

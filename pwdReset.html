@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block the_body %}
+
+<h4>Please choose from the following:</h4></br>
+
+<form action='{{ action }}' method='POST' class="pure-form pure-form-aligned">
+	<div class="pure-control-group">
+		<input type='hidden' name='resetType' value='sendCode'>
+		<input type='submit' value='Request Password Reset Code by Email' class="pure-button pure-button-primary">
+	</div>
+</form>
+
+<form action='{{ action }}' method='POST' class="pure-form pure-form-aligned">
+	<div class="pure-control-group">
+		<input type='hidden' name='resetType' value='enterCode'>
+		<input type='submit' value='Enter Password Reset Code' class="pure-button pure-button-primary">
+	</div>
+</form>
+
+{% if errors %}
+	<ul>
+	{% for error in errors  %}
+		<li style="color:red"> {{ error }} </li></br>
+	{% endfor %}
+	</ul>
+{% endif %}
+
+{% endblock %}

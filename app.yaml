@@ -1,0 +1,27 @@
+application: empirical-mote-865
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: yes
+
+handlers:
+- url: /favicon\.ico
+  static_files: favicon.ico
+  upload: favicon\.ico
+
+- url: /lists.css
+  static_files: lists.css
+  upload: lists.css
+
+- url: /back.jpg
+  static_files: back.jpg
+  upload: back.jpg
+
+- url: .*
+  script: main.app
+
+libraries:
+- name: webapp2
+  version: latest
+- name: jinja2
+  version: latest
