@@ -8,6 +8,7 @@ import os
 import re
 import webapp2
 import jinja2
+import cgi
 from gaesessions import get_current_session
 from google.appengine.ext import ndb
 from google.appengine.ext import db
@@ -33,7 +34,6 @@ JINJA = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True,
 )
-
 class LoginHandler(webapp2.RequestHandler):
     def get(self):  
         session = get_current_session()      
@@ -46,8 +46,8 @@ class LoginHandler(webapp2.RequestHandler):
 
     def post(self):
         session = get_current_session()
-        session['userid'] = self.request.get('userid')         
-        session['passwd'] = self.request.get('passwd')
+        session['userid'] = cgi.escape(self.request.get('userid'))        
+        session['passwd'] = cgi.escape(self.request.get('passwd'))
         errorList = []
         if len(session['userid']) < 4  :
             errorList.append('User ID is too short or has not been entered.')
@@ -184,10 +184,10 @@ class RegisterHandler(webapp2.RequestHandler):
 
     def post(self):
         session = get_current_session()
-        session['userid'] = self.request.get('userid')
-        session['email'] = self.request.get('email') 
-        session['passwd'] = self.request.get('passwd')
-        session['userName'] = self.request.get('username')
+        session['userid'] = cgi.escape(self.request.get('userid'))
+        session['email'] = cgi.escape(self.request.get('email'))
+        session['passwd'] = cgi.escape(self.request.get('passwd'))
+        session['userName'] = cgi.escape(self.request.get('username'))
         password = self.request.get('passwd')
         passwd2 = self.request.get('passwd2')        
 
@@ -195,12 +195,20 @@ class RegisterHandler(webapp2.RequestHandler):
         errorList=[]        
         if len(session['userid']) < 5 :
             errorList.append('User ID must be greater than five characters in length.')
+        #Find spaces in user ID
+        for x in session['userid']:
+            if ord(x) == 32:
+                errorList.append('User names cannot contain spaces or tabs.')
+                break
+        for x in session['email']:
+            if ord(x) == 32:
+                errorList.append('Email address cannot contain spaces or tabs.')
+                break
         if len(session['email']) < 5:
             errorList.append('Email must be a minimum length of five characters.')
         # Is the password too simple?
         if len(session['passwd']) > 8 or len(session['passwd']) < 4:        
-            errorList.append('Password must be between 4 and 8 characters long.')         
-        #if re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])$', password) is not None:
+            errorList.append('Password must be between 4 and 8 characters long.') 
         if re.match(r'(?=.*\d)(?=.*[a-z])(?=.*[A-Z])', password) is None:
             errorList.append('Password must contain at least one lower case character, one upper case character and one number')         
         if session['passwd'] != passwd2:
@@ -216,9 +224,11 @@ class RegisterHandler(webapp2.RequestHandler):
             ))
         else:
             # Does the userid already exist in the "confirmed" datastore or in "pending"?            
-            query = ndb.gql("SELECT * FROM pendUserDetail WHERE userid = :1", session['userid'])
-            ret = query.fetch()
-            if ret == []: 
+            query1 = ndb.gql("SELECT * FROM pendUserDetail WHERE userid = :1", session['userid'])
+            query2 = ndb.gql("SELECT * FROM cfirmUserDetail WHERE userid = :1", session['userid'])
+            ret1 = query1.fetch()
+            ret2 = query2.fetch()
+            if ret1 == [] and ret2 == []: 
                 # Add registration details to "pending" datastore.               
                 person = pendUserDetail()
                 person.userid = session['userid']
@@ -252,31 +262,37 @@ class RegisterHandler(webapp2.RequestHandler):
 class Verificationhandler(webapp2.RequestHandler):
     def get(self): 
         userType = self.request.get('type') 
-        query = ndb.gql("SELECT * FROM pendUserDetail WHERE userid = :1", userType)  
-        ret = query.fetch()
-        cPerson = cfirmUserDetail()
-        for i in ret:
-            cPerson.userid = i.userid
-            cPerson.passwd = i.passwd
-            cPerson.email = i.email
-            cPerson.userName = i.userName
-            cPerson.ranNumber = i.ranNumber
-            cPerson.emailCodeUsed = "Yes"
-            cPerson.put() 
-        template = JINJA.get_template('login.html')
-        if userType == "":
-            self.response.write(template.render(
-                { 'the_title': 'Welcome to the login page' ,                  
-                  'noDisplayLinks': 'noDisplayLinks',
-                  'action': '/processlogin'} 
-            ))
-        else:
+        query1 = ndb.gql("SELECT * FROM pendUserDetail WHERE userid = :1", userType)  
+        query2 = ndb.gql("SELECT * FROM cfirmUserDetail WHERE userid = :1", userType)
+        ret1 = query1.fetch()
+        ret2 = query2.fetch()
+        
+        if ret2 == [] and ret1 != []:
+            cPerson = cfirmUserDetail()
+            for i in ret1:
+                cPerson.userid = i.userid
+                cPerson.passwd = i.passwd
+                cPerson.email = i.email
+                cPerson.userName = i.userName
+                cPerson.ranNumber = i.ranNumber
+                cPerson.emailCodeUsed = "Yes"
+                cPerson.put()
+            template = JINJA.get_template('login.html')
             self.response.write(template.render(
                 { 'the_title': 'Welcome to the login page' ,
                   'verifydets': "Account has been verified, please log in!",
                   'noDisplayLinks': 'noDisplayLinks',
                   'action': '/processlogin'} 
             ))
+
+        else:
+            template = JINJA.get_template('login.html')
+            self.response.write(template.render(
+                { 'the_title': 'Welcome to the login page' ,                  
+                  'noDisplayLinks': 'noDisplayLinks',
+                  'action': '/processlogin',
+                  'errors': ['User ID not on system or already verified']} 
+            )) 
 
     def post(self):
         pass
@@ -321,8 +337,8 @@ class PasswordProcessHandler(webapp2.RequestHandler):
         session.clear()
         self.redirect('/pwdReset')        
     def post(self):
-        userID = self.request.get('userid') 
-        userEmail = self.request.get('email')
+        userID = cgi.escape(self.request.get('userid')) 
+        userEmail = cgi.escape(self.request.get('email'))
         query = ndb.gql("SELECT * FROM cfirmUserDetail WHERE userid = :1", userID)  
         ret = query.fetch()
         if ret == []:
@@ -363,11 +379,11 @@ class ResetPasswordHandler(webapp2.RequestHandler):
     def get(self):        
         self.redirect('/pwdReset')
     def post(self):
-        userID = self.request.get('userid')
-        userEmail = self.request.get('email')
-        userEmailCode = self.request.get('resetCode')
-        userPwd = self.request.get('passwd')
-        userPwd2 = self.request.get('passwd2')
+        userID = cgi.escape(self.request.get('userid'))
+        userEmail = cgi.escape(self.request.get('email'))
+        userEmailCode = cgi.escape(self.request.get('resetCode'))
+        userPwd = cgi.escape(self.request.get('passwd'))
+        userPwd2 = cgi.escape(self.request.get('passwd2'))
 
         query = ndb.gql("SELECT * FROM cfirmUserDetail WHERE userid = :1", userID)  
         ret = query.fetch()
